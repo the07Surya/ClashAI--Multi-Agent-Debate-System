@@ -1,0 +1,18 @@
+
+
+fastapi
+uvicorn[standard]
+websockets
+
+# LangGraph and LangChain
+langgraph
+langchain
+langchain-groq
+
+# Search Tools
+tavily-python
+
+# Utilities
+pydantic
+python-dotenv
+aiofiles

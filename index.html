@@ -1,0 +1,757 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Chimera - Multi-Agent Debate System</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --background: #ffffff;
+            --card-bg: #f1f5f9;
+            --border: #e2e8f0;
+        }
+
+        [data-theme="dark"] {
+            --primary: #3b82f6;
+            --secondary: #94a3b8;
+            --success: #22c55e;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --light: #1e293b;
+            --dark: #f1f5f9;
+            --background: #0f172a;
+            --card-bg: #1e293b;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--dark);
+            transition: all 0.3s ease;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        .input-section {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background-color: var(--background);
+            color: var(--dark);
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            background-color: var(--secondary);
+            cursor: not-allowed;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--secondary);
+        }
+
+        .indicator.researching { background-color: var(--warning); }
+        .indicator.debating { background-color: var(--primary); }
+        .indicator.moderating { background-color: var(--success); }
+        .indicator.complete { background-color: var(--success); }
+
+        .content-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .content-area {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            height: 100%;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .messages-container {
+            height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: var(--background);
+            border-left: 4px solid var(--secondary);
+        }
+
+        .message.innovator { border-left-color: #3b82f6; }
+        .message.skeptic { border-left-color: #ef4444; }
+        .message.engineer { border-left-color: #10b981; }
+        .message.ethicist { border-left-color: #8b5cf6; }
+        .message.research { border-left-color: #f59e0b; }
+        .message.judge { border-left-color: #6366f1; }
+        .message.moderator { border-left-color: #14b8a6; }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .message-role {
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .message-time {
+            color: var(--secondary);
+            font-size: 0.8rem;
+        }
+
+        .message-content {
+            line-height: 1.5;
+        }
+
+        .report-container {
+            margin-top: 2rem;
+        }
+
+        .report-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .report-section-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .report-list {
+            padding-left: 1.5rem;
+        }
+
+        .report-item {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 1.5rem 0;
+            text-align: center;
+            color: var(--secondary);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--danger);
+        }
+
+        .connection-dot.connected {
+            background-color: var(--success);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Project Chimera</div>
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+        </header>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="queryInput" placeholder="Enter a topic for debate (e.g., 'Benefits and risks of AI in healthcare')">
+                <button id="startDebate">Start Debate</button>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="indicator" id="statusIndicator"></div>
+                <span id="statusText">Ready to start</span>
+            </div>
+            <div class="connection-status">
+                <div class="connection-dot" id="connectionDot"></div>
+                <span id="connectionText">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Debate Timeline</div>
+                </div>
+                <div class="messages-container" id="messagesContainer">
+                    <div class="message">
+                        <div class="message-content">
+                            Welcome to Project Chimera. Enter a topic above to start a multi-agent debate.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Research Brief</div>
+                </div>
+                <div class="messages-container" id="researchContainer">
+                    <div class="message">
+                        <div class="message-content">
+                            Research findings will appear here once the debate begins.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card report-container hidden" id="reportContainer">
+            <div class="card-header">
+                <div class="card-title">Final Report</div>
+            </div>
+            <div id="reportContent">
+                <!-- Final report will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Project Chimera - Multi-Agent Debate System</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const themeToggle = document.getElementById('themeToggle');
+            const queryInput = document.getElementById('queryInput');
+            const startButton = document.getElementById('startDebate');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectionDot = document.getElementById('connectionDot');
+            const connectionText = document.getElementById('connectionText');
+            const messagesContainer = document.getElementById('messagesContainer');
+            const researchContainer = document.getElementById('researchContainer');
+            const reportContainer = document.getElementById('reportContainer');
+            const reportContent = document.getElementById('reportContent');
+            
+            // WebSocket connection
+            let socket = null;
+            let sessionId = null;
+            
+            // Theme toggle functionality
+            themeToggle.addEventListener('click', () => {
+                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+                themeToggle.textContent = isDark ? '🌙' : '☀️';
+            });
+            
+            // Generate a unique session ID
+            function generateSessionId() {
+                return 'session-' + Math.random().toString(36).substring(2, 15);
+            }
+            
+            // Connect to WebSocket
+            function connectWebSocket() {
+                sessionId = generateSessionId();
+                const wsUrl = `ws://localhost:8000/debate/${sessionId}`;
+                
+                try {
+                    socket = new WebSocket(wsUrl);
+                    
+                    socket.onopen = () => {
+                        connectionDot.classList.add('connected');
+                        connectionText.textContent = 'Connected';
+                        updateStatus('Connected', 'complete');
+                        console.log('WebSocket connected');
+                    };
+                    
+                    socket.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    };
+                    
+                    socket.onclose = () => {
+                        connectionDot.classList.remove('connected');
+                        connectionText.textContent = 'Disconnected';
+                        updateStatus('Disconnected', '');
+                        console.log('WebSocket disconnected');
+                    };
+                    
+                    socket.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        addMessage('system', 'Connection error. Please check if the server is running.');
+                    };
+                } catch (error) {
+                    console.error('Failed to connect:', error);
+                    addMessage('system', 'Failed to connect to the server. Please make sure the backend is running on localhost:8000.');
+                }
+            }
+            
+            // Handle WebSocket messages
+            function handleWebSocketMessage(data) {
+                console.log('Received message:', data);
+                
+                switch (data.type) {
+                    case 'research_complete':
+                        updateStatus('Research complete', 'researching');
+                        displayResearchBrief(data.data.brief);
+                        break;
+                    case 'agent_response':
+                        updateStatus(`Debating - Round ${data.data.round}`, 'debating');
+                        addMessage(data.data.agent, data.data.content, data.data.timestamp);
+                        break;
+                    case 'judge_decision':
+                        updateStatus(`Judge evaluation - Round ${data.data.round_count}`, 'moderating');
+                        addMessage('judge', data.data.reasoning, data.timestamp);
+                        break;
+                    case 'final_report':
+                        updateStatus('Debate complete', 'complete');
+                        displayFinalReport(data.data);
+                        break;
+                    case 'error':
+                        addMessage('system', data.message);
+                        break;
+                    case 'debate_complete':
+                        updateStatus('Debate completed successfully', 'complete');
+                        break;
+                }
+            }
+            
+            // Update status indicator
+            function updateStatus(text, status) {
+                statusText.textContent = text;
+                statusIndicator.className = 'indicator';
+                if (status) {
+                    statusIndicator.classList.add(status);
+                }
+            }
+            
+            // Add a message to the timeline
+            function addMessage(role, content, timestamp = null) {
+                const messageEl = document.createElement('div');
+                messageEl.className = `message ${role}`;
+                
+                const messageHeader = document.createElement('div');
+                messageHeader.className = 'message-header';
+                
+                const roleEl = document.createElement('div');
+                roleEl.className = 'message-role';
+                roleEl.textContent = role;
+                
+                const timeEl = document.createElement('div');
+                timeEl.className = 'message-time';
+                timeEl.textContent = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                
+                messageHeader.appendChild(roleEl);
+                messageHeader.appendChild(timeEl);
+                
+                const contentEl = document.createElement('div');
+                contentEl.className = 'message-content';
+                contentEl.textContent = content;
+                
+                messageEl.appendChild(messageHeader);
+                messageEl.appendChild(contentEl);
+                
+                messagesContainer.appendChild(messageEl);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            // Display research brief
+            function displayResearchBrief(brief) {
+                researchContainer.innerHTML = '';
+                
+                if (brief && brief.key_facts) {
+                    // Create key facts section
+                    const factsEl = document.createElement('div');
+                    factsEl.className = 'message research';
+                    
+                    const factsHeader = document.createElement('div');
+                    factsHeader.className = 'message-header';
+                    factsHeader.innerHTML = '<div class="message-role">Research</div><div class="message-time">Key Facts</div>';
+                    
+                    const factsContent = document.createElement('div');
+                    factsContent.className = 'message-content';
+                    
+                    if (brief.key_facts.length > 0) {
+                        const factsList = document.createElement('ul');
+                        brief.key_facts.forEach(fact => {
+                            const item = document.createElement('li');
+                            item.textContent = fact;
+                            factsList.appendChild(item);
+                        });
+                        factsContent.appendChild(factsList);
+                    } else {
+                        factsContent.textContent = 'No key facts available.';
+                    }
+                    
+                    factsEl.appendChild(factsHeader);
+                    factsEl.appendChild(factsContent);
+                    researchContainer.appendChild(factsEl);
+                    
+                    // Create arguments section if available
+                    if (brief.pro_arguments && brief.pro_arguments.length > 0) {
+                        const proEl = document.createElement('div');
+                        proEl.className = 'message research';
+                        
+                        const proHeader = document.createElement('div');
+                        proHeader.className = 'message-header';
+                        proHeader.innerHTML = '<div class="message-role">Research</div><div class="message-time">Supporting Arguments</div>';
+                        
+                        const proContent = document.createElement('div');
+                        proContent.className = 'message-content';
+                        
+                        const proList = document.createElement('ul');
+                        brief.pro_arguments.forEach(arg => {
+                            const item = document.createElement('li');
+                            item.textContent = arg;
+                            proList.appendChild(item);
+                        });
+                        proContent.appendChild(proList);
+                        
+                        proEl.appendChild(proHeader);
+                        proEl.appendChild(proContent);
+                        researchContainer.appendChild(proEl);
+                    }
+                    
+                    if (brief.con_arguments && brief.con_arguments.length > 0) {
+                        const conEl = document.createElement('div');
+                        conEl.className = 'message research';
+                        
+                        const conHeader = document.createElement('div');
+                        conHeader.className = 'message-header';
+                        conHeader.innerHTML = '<div class="message-role">Research</div><div class="message-time">Critical Arguments</div>';
+                        
+                        const conContent = document.createElement('div');
+                        conContent.className = 'message-content';
+                        
+                        const conList = document.createElement('ul');
+                        brief.con_arguments.forEach(arg => {
+                            const item = document.createElement('li');
+                            item.textContent = arg;
+                            conList.appendChild(item);
+                        });
+                        conContent.appendChild(conList);
+                        
+                        conEl.appendChild(conHeader);
+                        conEl.appendChild(conContent);
+                        researchContainer.appendChild(conEl);
+                    }
+                } else {
+                    const messageEl = document.createElement('div');
+                    messageEl.className = 'message';
+                    messageEl.innerHTML = '<div class="message-content">No research data available.</div>';
+                    researchContainer.appendChild(messageEl);
+                }
+                
+                researchContainer.scrollTop = researchContainer.scrollHeight;
+            }
+            
+            // Display final report
+            function displayFinalReport(report) {
+                reportContainer.classList.remove('hidden');
+                reportContent.innerHTML = '';
+                
+                if (report) {
+                    // Summary section
+                    if (report.summary) {
+                        const summarySection = document.createElement('div');
+                        summarySection.className = 'report-section';
+                        
+                        const summaryTitle = document.createElement('div');
+                        summaryTitle.className = 'report-section-title';
+                        summaryTitle.textContent = 'Executive Summary';
+                        
+                        const summaryContent = document.createElement('div');
+                        summaryContent.textContent = report.summary;
+                        
+                        summarySection.appendChild(summaryTitle);
+                        summarySection.appendChild(summaryContent);
+                        reportContent.appendChild(summarySection);
+                    }
+                    
+                    // Key insights
+                    if (report.key_insights && report.key_insights.length > 0) {
+                        const insightsSection = document.createElement('div');
+                        insightsSection.className = 'report-section';
+                        
+                        const insightsTitle = document.createElement('div');
+                        insightsTitle.className = 'report-section-title';
+                        insightsTitle.textContent = 'Key Insights';
+                        
+                        const insightsList = document.createElement('ul');
+                        insightsList.className = 'report-list';
+                        
+                        report.key_insights.forEach(insight => {
+                            const item = document.createElement('li');
+                            item.className = 'report-item';
+                            item.textContent = insight;
+                            insightsList.appendChild(item);
+                        });
+                        
+                        insightsSection.appendChild(insightsTitle);
+                        insightsSection.appendChild(insightsList);
+                        reportContent.appendChild(insightsSection);
+                    }
+                    
+                    // Consensus points
+                    if (report.consensus_points && report.consensus_points.length > 0) {
+                        const consensusSection = document.createElement('div');
+                        consensusSection.className = 'report-section';
+                        
+                        const consensusTitle = document.createElement('div');
+                        consensusTitle.className = 'report-section-title';
+                        consensusTitle.textContent = 'Areas of Consensus';
+                        
+                        const consensusList = document.createElement('ul');
+                        consensusList.className = 'report-list';
+                        
+                        report.consensus_points.forEach(point => {
+                            const item = document.createElement('li');
+                            item.className = 'report-item';
+                            item.textContent = point;
+                            consensusList.appendChild(item);
+                        });
+                        
+                        consensusSection.appendChild(consensusTitle);
+                        consensusSection.appendChild(consensusList);
+                        reportContent.appendChild(consensusSection);
+                    }
+                    
+                    // Tensions
+                    if (report.tensions && report.tensions.length > 0) {
+                        const tensionsSection = document.createElement('div');
+                        tensionsSection.className = 'report-section';
+                        
+                        const tensionsTitle = document.createElement('div');
+                        tensionsTitle.className = 'report-section-title';
+                        tensionsTitle.textContent = 'Areas of Disagreement';
+                        
+                        const tensionsList = document.createElement('ul');
+                        tensionsList.className = 'report-list';
+                        
+                        report.tensions.forEach(tension => {
+                            const item = document.createElement('li');
+                            item.className = 'report-item';
+                            item.textContent = tension;
+                            tensionsList.appendChild(item);
+                        });
+                        
+                        tensionsSection.appendChild(tensionsTitle);
+                        tensionsSection.appendChild(tensionsList);
+                        reportContent.appendChild(tensionsSection);
+                    }
+                    
+                    // Recommendations
+                    if (report.recommendations && report.recommendations.length > 0) {
+                        const recSection = document.createElement('div');
+                        recSection.className = 'report-section';
+                        
+                        const recTitle = document.createElement('div');
+                        recTitle.className = 'report-section-title';
+                        recTitle.textContent = 'Recommendations';
+                        
+                        const recList = document.createElement('ul');
+                        recList.className = 'report-list';
+                        
+                        report.recommendations.forEach(rec => {
+                            const item = document.createElement('li');
+                            item.className = 'report-item';
+                            item.textContent = rec;
+                            recList.appendChild(item);
+                        });
+                        
+                        recSection.appendChild(recTitle);
+                        recSection.appendChild(recList);
+                        reportContent.appendChild(recSection);
+                    }
+                } else {
+                    reportContent.textContent = 'No report data available.';
+                }
+            }
+            
+            // Start debate button handler
+            startButton.addEventListener('click', () => {
+                const query = queryInput.value.trim();
+                if (!query) {
+                    alert('Please enter a debate topic');
+                    return;
+                }
+                
+                // Clear previous content
+                messagesContainer.innerHTML = '';
+                researchContainer.innerHTML = '';
+                reportContainer.classList.add('hidden');
+                
+                // Connect if not already connected
+                if (!socket || socket.readyState !== WebSocket.OPEN) {
+                    connectWebSocket();
+                    
+                    // Wait for connection before sending
+                    const checkConnection = setInterval(() => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            clearInterval(checkConnection);
+                            sendStartMessage(query);
+                        }
+                    }, 100);
+                } else {
+                    sendStartMessage(query);
+                }
+            });
+            
+            // Send start message to WebSocket
+            function sendStartMessage(query) {
+                const message = {
+                    type: 'start_debate',
+                    query: query
+                };
+                
+                socket.send(JSON.stringify(message));
+                updateStatus('Starting debate...', 'researching');
+                addMessage('system', `Starting debate on: "${query}"`);
+                
+                // Disable input during debate
+                queryInput.disabled = true;
+                startButton.disabled = true;
+                
+                // Re-enable when debate completes (handled in final_report message)
+            }
+            
+            // Initialize
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html> 
