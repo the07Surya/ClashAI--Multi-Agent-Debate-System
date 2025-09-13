@@ -6,28 +6,35 @@ from config.settings import settings
 
 class JudgeAgent(BaseAgent):
     def __init__(self):
-        system_prompt = """You are the JUDGE - an impartial debate moderator who ensures productive discourse.
+        system_prompt = """<role>
+You are THE MODERATOR, an experienced debate facilitator who knows when discussions are productive and when they're spinning wheels.
+</role>
 
-Your responsibilities:
-- Analyze debate quality and depth of discussion
+<responsibilities>
 - Determine if the debate should continue or conclude
-- Provide clear reasoning for your decisions
-- Generate targeted prompts to guide productive next rounds
-- Ensure all perspectives are thoroughly explored
+- Identify gaps, repetitions, and missed opportunities  
+- Provide sharp, specific guidance for next round
+- Ensure each voice adds unique value
+- Recognize when diminishing returns set in
+</responsibilities>
 
-Focus on maximizing insight while preventing repetition or stagnation.
+<decision_criteria>
+CONTINUE if:
+- Key perspectives are missing or underdeveloped
+- Agents are talking past each other (need redirection)
+- New evidence or angles could add value
+- Productive disagreement is generating insight
 
-Always respond with valid JSON following this exact structure:
-{
-    "should_continue": true/false,
-    "reasoning": "Your detailed analysis and reasoning",
-    "targeted_prompts": {
-        "innovator": "Specific guidance for innovator's next response",
-        "skeptic": "Specific guidance for skeptic's next response",
-        "engineer": "Specific guidance for engineer's next response",
-        "ethicist": "Specific guidance for ethicist's next response"
-    }
-}"""
+CONCLUDE if:  
+- Positions are clearly established and defended
+- Arguments are becoming repetitive
+- Core issues have been thoroughly explored
+- Agents are simply restating previous points
+</decision_criteria>
+
+<response_format>
+Always respond with valid JSON only. No other text.
+</response_format>"""
         super().__init__("Judge", system_prompt)
     
     async def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,69 +42,71 @@ Always respond with valid JSON following this exact structure:
         round_count = state["round_count"]
         messages = state["messages"]
         
-        # Format debate transcript
-        transcript = "\n\n".join([
-            f"ROUND {msg.round} - {msg.role.upper()}:\n{msg.content}"
-            for msg in messages
-        ])
+        # Build transcript
+        transcript_by_round = {}
+        for msg in messages:
+            round_num = msg.round
+            if round_num not in transcript_by_round:
+                transcript_by_round[round_num] = []
+            transcript_by_round[round_num].append(f"{msg.role.title()}: {msg.content}")
         
-        prompt = f"""Debate Topic: {query}
-Current Round: {round_count}
-Max Rounds: {settings.MAX_ROUNDS}
+        formatted_transcript = "\n\n".join([
+            f"=== ROUND {round_num} ===\n" + "\n\n".join(round_messages)
+            for round_num, round_messages in transcript_by_round.items()
+        ])
 
-Complete Debate Transcript:
-{transcript}
+        prompt = f"""<debate_analysis>
+TOPIC: {query}
+CURRENT_ROUND: {round_count}
+MAX_ROUNDS: {settings.MAX_ROUNDS}
 
-As the JUDGE, analyze this debate and decide:
+FULL_TRANSCRIPT:
+{formatted_transcript}
+</debate_analysis>
 
-1. Should the debate CONTINUE or CONCLUDE?
-2. What is your detailed reasoning?
-3. If continuing, provide specific guidance for each expert's next response.
+<task>
+Analyze this debate and make your decision.
 
-Respond with ONLY valid JSON using this exact structure:
+<evaluation_checklist>
+□ Are agents repeating themselves?
+□ Are there unexplored angles or missing perspectives?  
+□ Is productive disagreement still happening?
+□ Would another round add meaningful value?
+□ Are all four perspectives clearly differentiated?
+</evaluation_checklist>
+
+<guidance_rules>
+If continuing, give each agent ONE specific focus:
+- Innovator: "Focus on [specific opportunity/solution]"
+- Skeptic: "Challenge [specific claim/assumption]"  
+- Engineer: "Address [specific technical aspect]"
+- Ethicist: "Explore [specific moral dimension]"
+
+Keep guidance under 15 words per agent.
+</guidance_rules>
+
+Respond with valid JSON only:
 {{
     "should_continue": true/false,
-    "reasoning": "Your detailed analysis and reasoning",
+    "reasoning": "2-3 sentence explanation of your decision",
     "targeted_prompts": {{
-        "innovator": "Specific guidance for innovator's next response",
-        "skeptic": "Specific guidance for skeptic's next response",
-        "engineer": "Specific guidance for engineer's next response",
-        "ethicist": "Specific guidance for ethicist's next response"
+        "innovator": "Specific 10-15 word guidance",
+        "skeptic": "Specific 10-15 word guidance", 
+        "engineer": "Specific 10-15 word guidance",
+        "ethicist": "Specific 10-15 word guidance"
     }}
 }}
+</task>"""
 
-Consider:
-- Are key points being addressed adequately?
-- Is there productive disagreement or just repetition?
-- Are important perspectives missing?
-- Would another round add significant value?"""
-        
         response = await self._generate_response(prompt)
         
         try:
-            # Clean JSON response
+            # Clean and parse JSON
             response = response.strip()
-            
-            # Handle markdown code blocks
             if response.startswith('```json'):
-                response = response[7:]
-            if response.endswith('```'):
-                response = response[:-3]
-            if response.startswith('```'):
-                response = response[3:]
-            if response.endswith('```'):
-                response = response[:-3]
-            
-            # Extract JSON if it's embedded in text
-            if not response.startswith('{'):
-                start_idx = response.find('{')
-                if start_idx >= 0:
-                    response = response[start_idx:]
-            
-            if not response.endswith('}'):
-                end_idx = response.rfind('}') + 1
-                if end_idx > 0:
-                    response = response[:end_idx]
+                response = response[7:-3]
+            elif response.startswith('```'):
+                response = response[3:-3]
             
             decision_data = json.loads(response)
             judge_decision = JudgeDecision(**decision_data)
@@ -105,19 +114,25 @@ Consider:
             state["judge_decision"] = judge_decision
             state["status"] = "judge_decision_complete"
             
-        except (json.JSONDecodeError, Exception) as e:
-            print(f"Judge decision parsing error: {e}")
-            print(f"Raw response: {response}")
+            print(f"⚖️ Judge Decision: {'CONTINUE' if judge_decision.should_continue else 'CONCLUDE'}")
+            print(f"   Reasoning: {judge_decision.reasoning}")
             
-            # Fallback decision
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"❌ Judge decision parsing error: {e}")
+            # Smart fallback based on round analysis
+            should_continue = (
+                round_count < settings.MAX_ROUNDS and 
+                round_count < 2  # Continue for at least 2 rounds
+            )
+            
             judge_decision = JudgeDecision(
-                should_continue=round_count < settings.MAX_ROUNDS,
-                reasoning=f"Default continuation logic applied due to parsing error. Round {round_count} of {settings.MAX_ROUNDS}.",
+                should_continue=should_continue,
+                reasoning=f"Round {round_count} analysis: {'Continue debate for deeper exploration' if should_continue else 'Sufficient exploration achieved, ready for synthesis'}",
                 targeted_prompts={
-                    "innovator": "Continue developing your innovative perspective with specific examples",
-                    "skeptic": "Provide more detailed critical analysis and identify specific risks",
-                    "engineer": "Focus on technical implementation details and practical constraints",
-                    "ethicist": "Elaborate on ethical implications and stakeholder impacts"
+                    "innovator": "Focus on your strongest breakthrough opportunity",
+                    "skeptic": "Challenge the most concerning risk or assumption",
+                    "engineer": "Address the biggest implementation hurdle",
+                    "ethicist": "Explore who benefits most and who might be harmed"
                 }
             )
             state["judge_decision"] = judge_decision

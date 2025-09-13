@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     MAX_ROUNDS: int = 3
     MAX_AGENTS: int = 4
     
+    # Response Configuration
+    MAX_RESPONSE_WORDS: int = 120
+    MIN_RESPONSE_WORDS: int = 50
+    
     # Model Configuration
     LLM_MODEL: str = "gemma2-9b-it"
     
