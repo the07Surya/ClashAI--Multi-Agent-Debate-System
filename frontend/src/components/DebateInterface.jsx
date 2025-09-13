@@ -1,414 +1,3 @@
-// import React, { useState, useEffect, useRef } from 'react';
-// import { motion, AnimatePresence } from 'framer-motion';
-// import { 
-//   ArrowPathIcon, 
-//   PlayIcon,
-//   PauseIcon 
-// } from '@heroicons/react/24/outline';
-
-// import useWebSocket from '../hooks/useWebSocket';
-// import ResearchPanel from './ResearchPanel';
-// import AgentPanel from './AgentPanel';
-// import JudgePanel from './JudgePanel';
-// import FinalReport from './FinalReport';
-
-// const DebateInterface = () => {
-//   const [query, setQuery] = useState('');
-//   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-//   const [debateState, setDebateState] = useState({
-//     status: 'idle',
-//     researchBrief: null,
-//     agentMessages: [],
-//     judgeDecisions: [],
-//     finalReport: null,
-//     currentRound: 0,
-//     startTime: null
-//   });
-
-//   const messagesEndRef = useRef(null);
-//   const { isConnected, messages, sendMessage, clearMessages, connectionStatus } = useWebSocket(
-//     `ws://localhost:8000/debate/${sessionId}`
-//   );
-
-//   // --- FIX: This ref tracks how many messages we've already processed ---
-//   const processedMessagesCount = useRef(0);
-
-//   // Auto-scroll to bottom on new messages
-//   const scrollToBottom = () => {
-//     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-//   };
-
-//   useEffect(() => {
-//     scrollToBottom();
-//   }, [debateState.agentMessages, debateState.finalReport]);
-
-//   // --- FIX: Rewritten message processing logic to handle batches ---
-//   useEffect(() => {
-//     // Get only the new messages that haven't been processed yet
-//     const newMessages = messages.slice(processedMessagesCount.current);
-//     if (newMessages.length === 0) return;
-
-//     // Process all new messages in a batch
-//     setDebateState(prev => {
-//       // Create a mutable copy of the previous state
-//       const newState = { ...prev };
-
-//       newMessages.forEach(message => {
-//         switch (message.type) {
-//           case 'research_complete':
-//             newState.status = 'research_complete';
-//             newState.researchBrief = message.data.brief;
-//             break;
-
-//           case 'agent_response':
-//             newState.status = 'debating';
-//             // Avoid adding duplicate messages
-//             if (!newState.agentMessages.some(m => m.id === message.id)) {
-//               newState.agentMessages.push(message);
-//             }
-//             newState.currentRound = Math.max(newState.currentRound, message.data.round || 1);
-//             break;
-
-//           case 'judge_decision':
-//             newState.status = 'judge_deciding';
-//             if (!newState.judgeDecisions.some(d => d.id === message.id)) {
-//                 newState.judgeDecisions.push(message);
-//             }
-//             break;
-
-//           case 'final_report':
-//             newState.status = 'complete';
-//             newState.finalReport = message.data;
-//             break;
-
-//           case 'debate_complete':
-//             newState.status = 'complete';
-//             break;
-
-//           case 'error':
-//             console.error('Debate error:', message.message);
-//             newState.status = 'error';
-//             break;
-
-//           default:
-//             console.log('Received unknown message type:', message.type);
-//             break;
-//         }
-//       });
-
-//       return newState;
-//     });
-
-//     // Update the counter to the new total number of messages
-//     processedMessagesCount.current = messages.length;
-
-//   }, [messages]); // This effect now correctly depends only on the 'messages' array
-
-//   const startDebate = () => {
-//     if (!query.trim() || !isConnected) return;
-    
-//     clearMessages();
-//     processedMessagesCount.current = 0; // Reset the counter
-//     setDebateState({
-//       status: 'starting',
-//       researchBrief: null,
-//       agentMessages: [],
-//       judgeDecisions: [],
-//       finalReport: null,
-//       currentRound: 0,
-//       startTime: new Date()
-//     });
-
-//     const success = sendMessage({
-//       type: 'start_debate',
-//       query: query
-//     });
-
-//     if (success) {
-//       setDebateState(prev => ({ ...prev, status: 'researching' }));
-//     }
-//   };
-
-//   const resetDebate = () => {
-//     setQuery('');
-//     clearMessages();
-//     processedMessagesCount.current = 0; // Reset the counter
-//     setDebateState({
-//       status: 'idle',
-//       researchBrief: null,
-//       agentMessages: [],
-//       judgeDecisions: [],
-//       finalReport: null,
-//       currentRound: 0,
-//       startTime: null
-//     });
-//   };
-
-//   const getStatusConfig = () => {
-//     const configs = {
-//       idle: { 
-//         message: 'Ready to explore complex topics through expert debate', 
-//         color: 'text-gray-600',
-//         bgColor: 'bg-gray-100',
-//         icon: '🤔'
-//       },
-//       starting: { 
-//         message: 'Initializing expert debate session...', 
-//         color: 'text-blue-600',
-//         bgColor: 'bg-blue-100',
-//         icon: '🚀'
-//       },
-//       researching: { 
-//         message: 'AI researcher gathering comprehensive information...', 
-//         color: 'text-blue-600',
-//         bgColor: 'bg-blue-100',
-//         icon: '🔍'
-//       },
-//       research_complete: { 
-//         message: 'Research complete. Expert agents preparing arguments...', 
-//         color: 'text-green-600',
-//         bgColor: 'bg-green-100',
-//         icon: '✅'
-//       },
-//       debating: { 
-//         message: `Round ${debateState.currentRound} - Expert debate in progress...`, 
-//         color: 'text-purple-600',
-//         bgColor: 'bg-purple-100',
-//         icon: '🎯'
-//       },
-//       debating_round_1_parallel: { 
-//         message: 'Round 1 - All experts presenting opening statements simultaneously...', 
-//         color: 'text-purple-600',
-//         bgColor: 'bg-purple-100',
-//         icon: '🎯'
-//       },
-//       judge_deciding: { 
-//         message: 'AI judge evaluating debate progress...', 
-//         color: 'text-yellow-600',
-//         bgColor: 'bg-yellow-100',
-//         icon: '⚖️'
-//       },
-//       moderating: { 
-//         message: 'AI moderator synthesizing insights and conclusions...', 
-//         color: 'text-indigo-600',
-//         bgColor: 'bg-indigo-100',
-//         icon: '📝'
-//       },
-//       complete: { 
-//         message: 'Multi-agent debate analysis complete!', 
-//         color: 'text-green-600',
-//         bgColor: 'bg-green-100',
-//         icon: '🎉'
-//       },
-//       error: { 
-//         message: 'An error occurred during the debate process', 
-//         color: 'text-red-600',
-//         bgColor: 'bg-red-100',
-//         icon: '❌'
-//       }
-//     };
-
-//     // Handle dynamic sequential round statuses
-//     if (debateState.status.startsWith('debating_round_') && debateState.status.includes('_sequential')) {
-//       return {
-//         message: `Round ${debateState.currentRound} - Expert rebuttals and counter-arguments...`,
-//         color: 'text-indigo-600',
-//         bgColor: 'bg-indigo-100',
-//         icon: '💬'
-//       };
-//     }
-
-//     return configs[debateState.status] || configs.idle;
-//   };
-
-//   const isDebateActive = ['starting', 'researching', 'research_complete', 'debating', 'judge_deciding', 'moderating'].includes(debateState.status);
-//   const statusConfig = getStatusConfig();
-
-//   const getConnectionStatusConfig = () => {
-//     const configs = {
-//       connected: { color: 'bg-green-500', text: 'Connected', textColor: 'text-green-800' },
-//       connecting: { color: 'bg-yellow-500', text: 'Connecting...', textColor: 'text-yellow-800' },
-//       reconnecting: { color: 'bg-yellow-500', text: 'Reconnecting...', textColor: 'text-yellow-800' },
-//       disconnected: { color: 'bg-red-500', text: 'Disconnected', textColor: 'text-red-800' },
-//       error: { color: 'bg-red-500', text: 'Connection Error', textColor: 'text-red-800' },
-//       failed: { color: 'bg-red-500', text: 'Connection Failed', textColor: 'text-red-800' }
-//     };
-//     return configs[connectionStatus] || configs.disconnected;
-//   };
-
-//   const connectionConfig = getConnectionStatusConfig();
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
-//       <div className="max-w-7xl mx-auto p-4 space-y-6">
-        
-//         {/* Header */}
-//         <motion.div 
-//           initial={{ opacity: 0, y: -20 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           className="text-center py-8"
-//         >
-//           <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
-//             Project Chimera
-//           </h1>
-//           <p className="text-xl text-gray-600 font-medium">
-//             Multi-Agent Expert Debate System
-//           </p>
-//           <p className="text-sm text-gray-500 mt-2">
-//             Harness the power of AI experts to explore complex topics from multiple perspectives
-//           </p>
-//         </motion.div>
-
-//         {/* Query Input Section */}
-//         <motion.div 
-//           initial={{ opacity: 0, y: 20 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-white/50"
-//         >
-//           <div className="flex flex-col space-y-4">
-//             <div className="flex space-x-4">
-//               <div className="flex-1 relative">
-//                 <input
-//                   type="text"
-//                   value={query}
-//                   onChange={(e) => setQuery(e.target.value)}
-//                   placeholder="Enter your complex question or debate topic..."
-//                   className="w-full p-4 pl-12 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg"
-//                   disabled={isDebateActive}
-//                   onKeyPress={(e) => e.key === 'Enter' && !isDebateActive && startDebate()}
-//                 />
-//                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-//                   🤖
-//                 </div>
-//               </div>
-              
-//               <button
-//                 onClick={startDebate}
-//                 disabled={!query.trim() || !isConnected || isDebateActive}
-//                 className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 font-semibold text-lg shadow-lg hover:shadow-xl"
-//               >
-//                 {isDebateActive ? (
-//                   <>
-//                     <PauseIcon className="h-5 w-5 animate-pulse" />
-//                     <span>In Progress</span>
-//                   </>
-//                 ) : (
-//                   <>
-//                     <PlayIcon className="h-5 w-5" />
-//                     <span>Start Debate</span>
-//                   </>
-//                 )}
-//               </button>
-              
-//               <button
-//                 onClick={resetDebate}
-//                 disabled={isDebateActive}
-//                 className="px-6 py-4 bg-gray-600 text-white rounded-xl hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 font-semibold shadow-lg"
-//               >
-//                 <ArrowPathIcon className="h-5 w-5" />
-//                 <span>Reset</span>
-//               </button>
-//             </div>
-//           </div>
-//         </motion.div>
-
-//         {/* Status Bar */}
-//         <motion.div 
-//           initial={{ opacity: 0 }}
-//           animate={{ opacity: 1 }}
-//           className="flex items-center justify-between"
-//         >
-//           <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-bold ${statusConfig.bgColor} ${statusConfig.color}`}>
-//             <span className="mr-2">{statusConfig.icon}</span>
-//             {statusConfig.message}
-//           </div>
-          
-//           <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/80 ${connectionConfig.textColor} border border-gray-200`}>
-//             <div className={`w-2 h-2 rounded-full mr-2 ${connectionConfig.color} ${
-//               connectionStatus === 'connecting' || connectionStatus === 'reconnecting' ? 'animate-pulse' : ''
-//             }`}></div>
-//             {connectionConfig.text}
-//           </div>
-//         </motion.div>
-
-//         {/* Research Phase */}
-//         <AnimatePresence>
-//           {(debateState.status === 'researching' || debateState.researchBrief) && (
-//             <ResearchPanel 
-//               researchBrief={debateState.researchBrief} 
-//               isLoading={debateState.status === 'researching'}
-//             />
-//           )}
-//         </AnimatePresence>
-
-//         {/* Judge Decisions */}
-//         <AnimatePresence>
-//           {debateState.judgeDecisions.length > 0 && (
-//             <JudgePanel judgeDecisions={debateState.judgeDecisions} />
-//           )}
-//         </AnimatePresence>
-
-//         {/* Expert Agents Grid */}
-//         <AnimatePresence>
-//           {(debateState.agentMessages.length > 0 || isDebateActive) && (
-//             <motion.div 
-//               initial={{ opacity: 0, y: 20 }}
-//               animate={{ opacity: 1, y: 0 }}
-//               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
-//             >
-//               {['innovator', 'skeptic', 'engineer', 'ethicist'].map((agent) => (
-//                 <AgentPanel
-//                   key={agent}
-//                   agent={agent}
-//                   messages={debateState.agentMessages}
-//                   currentRound={debateState.currentRound}
-//                   isActive={false} // Active state can be enhanced later
-//                   debateStatus={debateState.status}
-//                 />
-//               ))}
-//             </motion.div>
-//           )}
-//         </AnimatePresence>
-
-//         {/* Final Report */}
-//         <AnimatePresence>
-//           {debateState.finalReport && (
-//             <FinalReport report={debateState.finalReport} />
-//           )}
-//         </AnimatePresence>
-
-//         {/* Scroll marker */}
-//         <div ref={messagesEndRef} />
-
-//         {/* Development Debug Panel */}
-//         {process.env.NODE_ENV === 'development' && (
-//           <motion.div 
-//             initial={{ opacity: 0 }}
-//             animate={{ opacity: 1 }}
-//             className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs space-y-1"
-//           >
-//             <div className="text-green-300 font-bold mb-2">🔧 Debug Panel</div>
-//             <div>Session: {sessionId}</div>
-//             <div>Status: {debateState.status}</div>
-//             <div>WS Msgs: {messages.length}</div>
-//             <div>Processed Msgs: {processedMessagesCount.current}</div>
-//             <div>Round: {debateState.currentRound}</div>
-//             <div>Connection: {connectionStatus}</div>
-//             <div>Agent Msgs in State: {debateState.agentMessages.length}</div>
-//             {debateState.startTime && (
-//               <div>Duration: {Math.round((new Date() - debateState.startTime) / 1000)}s</div>
-//             )}
-//           </motion.div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default DebateInterface;
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -417,14 +6,282 @@ import {
   PauseIcon,
   SparklesIcon,
   BoltIcon,
-  RocketLaunchIcon
+  RocketLaunchIcon,
+  ScaleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  DocumentTextIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 
 import useWebSocket from '../hooks/useWebSocket';
 import ResearchPanel from './ResearchPanel';
-import AgentPanel from './AgentPanel';
-import JudgePanel from './JudgePanel';
 import FinalReport from './FinalReport';
+
+const getAgentConfig = (agentType) => {
+  const configs = {
+    innovator: {
+      name: 'Alex Chen',
+      title: 'The Innovator',
+      avatar: '🚀',
+      colors: {
+        primary: 'text-emerald-400',
+        bg: 'bg-gradient-to-r from-emerald-500/20 to-green-500/20',
+        border: 'border-emerald-500/40',
+        accent: 'bg-emerald-500/10',
+        glow: 'shadow-emerald-500/30'
+      }
+    },
+    skeptic: {
+      name: 'Dr. Sarah Reeves',
+      title: 'The Skeptic',
+      avatar: '🛡️',
+      colors: {
+        primary: 'text-red-400',
+        bg: 'bg-gradient-to-r from-red-500/20 to-rose-500/20',
+        border: 'border-red-500/40',
+        accent: 'bg-red-500/10',
+        glow: 'shadow-red-500/30'
+      }
+    },
+    engineer: {
+      name: 'Marcus Torres',
+      title: 'The Engineer',
+      avatar: '⚙️',
+      colors: {
+        primary: 'text-blue-400',
+        bg: 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20',
+        border: 'border-blue-500/40',
+        accent: 'bg-blue-500/10',
+        glow: 'shadow-blue-500/30'
+      }
+    },
+    ethicist: {
+      name: 'Dr. Amara Okafor',
+      title: 'The Ethicist',
+      avatar: '⚖️',
+      colors: {
+        primary: 'text-purple-400',
+        bg: 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20',
+        border: 'border-purple-500/40',
+        accent: 'bg-purple-500/10',
+        glow: 'shadow-purple-500/30'
+      }
+    },
+    judge: {
+      name: 'Supreme AI Judge',
+      title: 'Neutral Arbitrator',
+      avatar: '👨‍⚖️',
+      colors: {
+        primary: 'text-amber-400',
+        bg: 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20',
+        border: 'border-amber-500/40',
+        accent: 'bg-amber-500/10',
+        glow: 'shadow-amber-500/30'
+      }
+    }
+  };
+  return configs[agentType] || configs.innovator;
+};
+
+const ChatMessage = ({ message, isTyping = false }) => {
+  const isJudge = message.type === 'judge_decision';
+  const agentType = isJudge ? 'judge' : message.data?.role;
+  const config = getAgentConfig(agentType);
+  
+  if (isJudge) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, type: "spring" }}
+        className="flex justify-center mb-8"
+      >
+        <div className="max-w-4xl w-full">
+          <div className={`${config.colors.bg} backdrop-blur-sm rounded-3xl p-6 border-2 ${config.colors.border} relative overflow-hidden`}>
+            {/* Judge glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-orange-500/10 animate-pulse" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <motion.div
+                    className="text-3xl"
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    {config.avatar}
+                  </motion.div>
+                  <div>
+                    <h4 className={`font-black text-lg ${config.colors.primary}`}>
+                      {config.name}
+                    </h4>
+                    <p className="text-amber-300 text-sm font-medium">{config.title}</p>
+                  </div>
+                </div>
+                
+                <div className={`flex items-center space-x-3 px-4 py-2 rounded-xl font-bold text-sm border-2 ${
+                  message.data.should_continue 
+                    ? 'bg-green-500/20 text-green-300 border-green-500/40' 
+                    : 'bg-red-500/20 text-red-300 border-red-500/40'
+                }`}>
+                  {message.data.should_continue ? (
+                    <>
+                      <CheckCircleIcon className="h-5 w-5" />
+                      <span>Continue Debate</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircleIcon className="h-5 w-5" />
+                      <span>Conclude Debate</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl p-5 border border-slate-600/30">
+                <div className="flex items-start space-x-3">
+                  <div className="w-1 h-20 bg-gradient-to-b from-amber-400 to-yellow-400 rounded-full" />
+                  <div className="flex-1">
+                    <p className="text-amber-400 font-bold mb-2">Judicial Analysis:</p>
+                    <p className="text-slate-200 leading-relaxed font-medium">
+                      {message.data.reasoning}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-center">
+                <span className="text-amber-300 text-sm font-medium bg-amber-500/20 px-3 py-1 rounded-full">
+                  Post-Round {message.data.round_count} Decision
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, x: agentType === 'innovator' || agentType === 'engineer' ? -30 : 30 }}
+      animate={{ opacity: 1, y: 0, x: 0 }}
+      transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
+      className={`flex ${agentType === 'innovator' || agentType === 'engineer' ? 'justify-start' : 'justify-end'} mb-6`}
+    >
+      <div className={`max-w-3xl ${agentType === 'innovator' || agentType === 'engineer' ? 'mr-12' : 'ml-12'}`}>
+        <div className={`${config.colors.bg} backdrop-blur-sm rounded-2xl p-6 border-2 ${config.colors.border} relative overflow-hidden group`}>
+          {/* Message glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          
+          <div className="relative z-10">
+            {/* Agent Header */}
+            <div className={`flex items-center space-x-3 mb-4 ${agentType === 'skeptic' || agentType === 'ethicist' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+              <motion.div
+                className="text-2xl"
+                animate={isTyping ? { scale: [1, 1.2, 1] } : {}}
+                transition={{ duration: 0.8, repeat: isTyping ? Infinity : 0 }}
+              >
+                {config.avatar}
+              </motion.div>
+              <div className={`${agentType === 'skeptic' || agentType === 'ethicist' ? 'text-right' : ''}`}>
+                <h4 className={`font-black text-lg ${config.colors.primary}`}>
+                  {config.name}
+                </h4>
+                <p className={`text-sm font-medium ${config.colors.primary.replace('400', '300')}`}>
+                  {config.title}
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded-full">
+                  Round {message.data?.round || 1}
+                </span>
+                <div className={`w-2 h-2 ${config.colors.primary.replace('text-', 'bg-')} rounded-full animate-pulse`} />
+              </div>
+            </div>
+            
+            {/* Message Content */}
+            <div className="bg-slate-900/40 backdrop-blur-sm rounded-xl p-5 border border-slate-600/20">
+              {isTyping ? (
+                <div className="space-y-2">
+                  <div className="flex space-x-1">
+                    {[0, 1, 2].map(i => (
+                      <motion.div
+                        key={i}
+                        className={`w-2 h-2 ${config.colors.primary.replace('text-', 'bg-')} rounded-full`}
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: i * 0.2
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-slate-400 text-sm italic">Formulating response...</p>
+                </div>
+              ) : (
+                <p className="text-slate-200 leading-relaxed font-medium text-base">
+                  {message.data?.content}
+                </p>
+              )}
+            </div>
+            
+            {/* Timestamp */}
+            <div className={`mt-3 ${agentType === 'skeptic' || agentType === 'ethicist' ? 'text-right' : 'text-left'}`}>
+              <span className="text-xs text-slate-500">
+                {message.data?.timestamp ? new Date(message.data.timestamp).toLocaleTimeString() : 'Now'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const RoundSeparator = ({ round, isActive = false }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.8 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="flex justify-center my-12"
+  >
+    <div className={`relative ${isActive ? 'animate-pulse' : ''}`}>
+      <div className={`bg-gradient-to-r ${isActive ? 'from-purple-500/30 to-pink-500/30' : 'from-slate-700/50 to-slate-600/50'} backdrop-blur-sm rounded-2xl px-8 py-4 border-2 ${isActive ? 'border-purple-500/50' : 'border-slate-600/50'}`}>
+        <div className="flex items-center space-x-4">
+          <motion.div
+            className={`w-4 h-4 rounded-full ${isActive ? 'bg-purple-400' : 'bg-slate-400'}`}
+            animate={isActive ? { scale: [1, 1.3, 1] } : {}}
+            transition={{ duration: 1, repeat: Infinity }}
+          />
+          <span className={`font-black text-xl ${isActive ? 'text-purple-300' : 'text-slate-400'}`}>
+            Round {round}
+          </span>
+          {isActive && (
+            <motion.span
+              className="text-purple-400 text-sm font-bold bg-purple-500/20 px-3 py-1 rounded-full"
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              Live
+            </motion.span>
+          )}
+        </div>
+      </div>
+      {isActive && (
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl"
+          animate={{ 
+            scale: [1, 1.1, 1],
+            opacity: [0.5, 0.8, 0.5]
+          }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+      )}
+    </div>
+  </motion.div>
+);
 
 const DebateInterface = () => {
   const [query, setQuery] = useState('');
@@ -441,15 +298,12 @@ const DebateInterface = () => {
   });
 
   const messagesEndRef = useRef(null);
+  const processedMessagesCount = useRef(0);
+
   const { isConnected, messages, sendMessage, clearMessages, connectionStatus } = useWebSocket(
     `ws://localhost:8000/debate/${sessionId}`
   );
-  
-  // FIX: This ref tracks how many messages we've already processed. It's essential
-  // for correctly handling messages that arrive in quick batches.
-  const processedMessagesCount = useRef(0);
 
-  // Auto-scroll to bottom on new messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -458,8 +312,7 @@ const DebateInterface = () => {
     scrollToBottom();
   }, [debateState.agentMessages, debateState.finalReport]);
 
-  // FIX: Replaced the faulty message handler with a robust batch-processing logic.
-  // This ensures that no messages are dropped, solving the "No neural activity" issue.
+  // Process messages similar to your original implementation
   useEffect(() => {
     const newMessages = messages.slice(processedMessagesCount.current);
     if (newMessages.length === 0) return;
@@ -509,7 +362,6 @@ const DebateInterface = () => {
               newState.currentRound = message.data.round;
               newState.status = 'debating';
             }
-            console.log('Received message:', message.type, message.data);
             break;
         }
       });
@@ -524,7 +376,7 @@ const DebateInterface = () => {
     if (!query.trim() || !isConnected) return;
     
     clearMessages();
-    processedMessagesCount.current = 0; // Reset counter on new debate
+    processedMessagesCount.current = 0;
     setDebateState({
       status: 'starting',
       researchBrief: null,
@@ -549,7 +401,7 @@ const DebateInterface = () => {
   const resetDebate = () => {
     setQuery('');
     clearMessages();
-    processedMessagesCount.current = 0; // Reset counter on reset
+    processedMessagesCount.current = 0;
     setDebateState({
       status: 'idle',
       researchBrief: null,
@@ -561,6 +413,40 @@ const DebateInterface = () => {
       startTime: null
     });
   };
+
+  // Combine and sort all debate messages chronologically
+  const getAllDebateMessages = () => {
+    const allMessages = [];
+    
+    // Add agent messages
+    debateState.agentMessages.forEach(msg => {
+      allMessages.push({...msg, sortOrder: new Date(msg.data.timestamp).getTime()});
+    });
+    
+    // Add judge decisions
+    debateState.judgeDecisions.forEach(msg => {
+      allMessages.push({...msg, sortOrder: new Date(msg.data.timestamp || Date.now()).getTime()});
+    });
+    
+    return allMessages.sort((a, b) => a.sortOrder - b.sortOrder);
+  };
+
+  const groupMessagesByRound = (messages) => {
+    const rounds = {};
+    messages.forEach(msg => {
+      const round = msg.data?.round || (msg.type === 'judge_decision' ? msg.data?.round_count : 1);
+      if (!rounds[round]) {
+        rounds[round] = [];
+      }
+      rounds[round].push(msg);
+    });
+    return rounds;
+  };
+
+  const allDebateMessages = getAllDebateMessages();
+  const roundGroups = groupMessagesByRound(allDebateMessages);
+  const sortedRounds = Object.keys(roundGroups).sort((a, b) => parseInt(a) - parseInt(b));
+  const isDebateActive = ['starting', 'researching', 'research_complete', 'debating', 'judge_deciding', 'moderating'].includes(debateState.status);
 
   const getStatusConfig = () => {
     const configs = {
@@ -612,14 +498,6 @@ const DebateInterface = () => {
         icon: '⚖️',
         glow: 'shadow-amber-300/60'
       },
-      moderating: { 
-        message: 'Synthesizing collective intelligence...', 
-        color: 'text-indigo-700',
-        bgColor: 'bg-gradient-to-r from-indigo-100 to-violet-100',
-        borderColor: 'border-indigo-300',
-        icon: '🧬',
-        glow: 'shadow-indigo-300/60'
-      },
       complete: { 
         message: 'Debate matrix complete • Insights extracted', 
         color: 'text-emerald-700',
@@ -640,7 +518,6 @@ const DebateInterface = () => {
     return configs[debateState.status] || configs.idle;
   };
 
-  const isDebateActive = ['starting', 'researching', 'research_complete', 'debating', 'judge_deciding', 'moderating'].includes(debateState.status);
   const statusConfig = getStatusConfig();
 
   const getConnectionStatusConfig = () => {
@@ -711,7 +588,7 @@ const DebateInterface = () => {
 
       <div className="relative z-10 max-w-7xl mx-auto p-6 space-y-8">
         
-        {/* Stunning Header */}
+        {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -774,7 +651,7 @@ const DebateInterface = () => {
           </motion.div>
         </motion.div>
 
-        {/* Futuristic Query Input Section */}
+        {/* Query Input Section */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -848,7 +725,7 @@ const DebateInterface = () => {
           </div>
         </motion.div>
 
-        {/* Futuristic Status Bar */}
+        {/* Status Bar */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -893,7 +770,7 @@ const DebateInterface = () => {
           </motion.div>
         </motion.div>
 
-        {/* Research Phase */}
+        {/* Research Phase - Keep Original */}
         <AnimatePresence>
           {(debateState.status === 'researching' || debateState.researchBrief) && (
             <ResearchPanel 
@@ -903,47 +780,79 @@ const DebateInterface = () => {
           )}
         </AnimatePresence>
 
-        {/* Judge Decisions */}
+        {/* NEW: Chat-Style Debate Section */}
         <AnimatePresence>
-          {debateState.judgeDecisions.length > 0 && (
-            <JudgePanel judgeDecisions={debateState.judgeDecisions} />
-          )}
-        </AnimatePresence>
-
-        {/* Expert Agents Grid */}
-        <AnimatePresence>
-          {(debateState.status === 'debating' || debateState.agentMessages.length > 0 || debateState.status === 'research_complete') && (
+          {allDebateMessages.length > 0 && (
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.8 }}
-              className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"
             >
-              {['innovator', 'skeptic', 'engineer', 'ethicist'].map((agent, index) => (
-                <motion.div
-                  key={agent}
-                  initial={{ opacity: 0, y: 50, rotateX: -15 }}
-                  animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                  transition={{ delay: 0.1 * index, duration: 0.6, type: "spring" }}
-                >
-                  <AgentPanel
-                    agent={agent}
-                    messages={debateState.agentMessages}
-                    currentRound={debateState.currentRound}
-                    isActive={debateState.activeAgents.has(agent)}
-                    debateStatus={debateState.status}
-                  />
-                </motion.div>
-              ))}
+              {/* Participants Bar */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 mb-8 border border-slate-700/50"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-6">
+                    <span className="text-slate-400 font-medium">Active Neural Agents:</span>
+                    {['innovator', 'skeptic', 'engineer', 'ethicist'].map(agent => {
+                      const config = getAgentConfig(agent);
+                      return (
+                        <motion.div
+                          key={agent}
+                          className={`flex items-center space-x-2 px-3 py-2 rounded-xl border-2 ${config.colors.border} ${config.colors.accent} backdrop-blur-sm`}
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          <span className="text-lg">{config.avatar}</span>
+                          <span className={`text-sm font-bold ${config.colors.primary}`}>
+                            {config.name}
+                          </span>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-slate-400 text-sm">Round</span>
+                    <span className="bg-purple-500/20 text-purple-400 font-bold px-3 py-1 rounded-full">
+                      {debateState.currentRound}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Chat Container */}
+              <div className="bg-slate-800/30 backdrop-blur-sm rounded-3xl border border-slate-700/50 overflow-hidden mb-8">
+                <div className="h-[800px] overflow-y-auto p-6 space-y-2 custom-scrollbar">
+                  {sortedRounds.map(round => (
+                    <div key={round}>
+                      <RoundSeparator 
+                        round={parseInt(round)} 
+                        isActive={parseInt(round) === debateState.currentRound && debateState.status === 'debating'}
+                      />
+                      <AnimatePresence>
+                        {roundGroups[round]
+                          .sort((a, b) => new Date(a.data?.timestamp || 0) - new Date(b.data?.timestamp || 0))
+                          .map(message => (
+                            <ChatMessage key={message.id} message={message} />
+                          ))
+                        }
+                      </AnimatePresence>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Final Report */}
         <AnimatePresence>
-          {debateState.finalReport && (
-            <FinalReport report={debateState.finalReport} />
-          )}
+           {debateState.finalReport && (
+             <FinalReport report={debateState.finalReport} />
+           )}
         </AnimatePresence>
 
         {/* Scroll marker */}
