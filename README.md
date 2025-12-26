@@ -1,9 +1,7 @@
 
-# Project Title
+# Clash AI: The Multi-Agent AI Debate System
 
 ## Objective
-
-### Clash AI: The Multi-Agent AI Debate System
 
 **Clash AI** is a dynamic AI ecosystem designed to move beyond simple Q&A and into the realm of complex, multi-perspective discussions.
 
@@ -163,4 +161,5 @@ To start a new session, simply click the **Back to Studio** button.
 
 # 🤝 Contributing
 Contributions are welcome!! If you have suggestions for new features, improvements to the agent prompts, or bug fixes, please feel free to open an issue or submit a pull request.
+
 
